@@ -673,9 +673,9 @@
       let currentDay = 1;
       let timeoutIds = {};
       let currentFolderId = null;
-      const MOVE_INTERVAL = 60000; // 1 minute for testing (change to actual interval in production)
+      const MOVE_INTERVAL = 60000; // 1 minute for testing
 
-      // Make functions available globally
+      // Các hàm tiện ích
       window.toggleSidebar = function () {
         document.querySelector(".sidebar").classList.toggle("active");
       };
@@ -692,6 +692,7 @@
         }
       });
 
+      // Theme functions
       function setDarkTheme() {
         document.documentElement.style.setProperty("--background", "#1a1a2e");
         document.documentElement.style.setProperty("--text-primary", "#e6e6e6");
@@ -776,7 +777,7 @@
         form.style.display = form.style.display === "none" ? "block" : "none";
       };
 
-      window.createFolder = function () {
+      window.createFolder = async function () {
         const name = document.getElementById("folderName").value.trim();
         const description = document.getElementById("description").value.trim();
         if (!name) {
@@ -794,10 +795,11 @@
           createdAt: new Date().toISOString(),
           lastMoved: new Date().toISOString(),
           words: [],
+          hasInitialWords: false,
         };
 
         folders.day1.push(folder);
-        saveData();
+        await saveData();
         updateFolderDisplay();
 
         document.getElementById("folderName").value = "";
@@ -806,8 +808,12 @@
 
         showNotification("Folder created successfully!", "success");
         startFolderTimer(folder);
+
+        // Chuyển hướng đến trang nhập từ vựng
+        window.location.href = `vocabulary-input.html?id=${folder.id}`;
       };
 
+      // Timer and update functions
       function startFolderTimer(folder) {
         if (timeoutIds[folder.id]) clearTimeout(timeoutIds[folder.id]);
         const createdTime = new Date(
@@ -838,7 +844,7 @@
         }
       }
 
-      window.moveToNextDay = function (id) {
+      window.moveToNextDay = async function (id) {
         for (let i = 1; i <= 7; i++) {
           const dayKey = `day${i}`;
           const folderIndex = folders[dayKey].findIndex((f) => f.id === id);
@@ -848,7 +854,7 @@
             folder.currentDay++;
             folder.lastMoved = new Date().toISOString();
             folders[`day${folder.currentDay}`].push(folder);
-            saveData();
+            await saveData();
             updateFolderDisplay();
             showNotification(
               `Moved folder to Day ${folder.currentDay}`,
@@ -860,13 +866,13 @@
         }
       };
 
-      window.deleteFolder = function (id) {
+      window.deleteFolder = async function (id) {
         if (confirm("Are you sure you want to delete this folder?")) {
           for (let i = 1; i <= 7; i++) {
             const dayKey = `day${i}`;
             folders[dayKey] = folders[dayKey].filter((f) => f.id !== id);
           }
-          saveData();
+          await saveData();
           updateFolderDisplay();
           showNotification("Folder deleted successfully!", "success");
         }
@@ -908,56 +914,59 @@
             const nextMoveTime = new Date(folder.lastMoved);
             nextMoveTime.setTime(nextMoveTime.getTime() + MOVE_INTERVAL);
 
+            const studyButton = folder.hasInitialWords
+              ? `<button class="btn btn-secondary" onclick="window.location.href='study-options.html?id=${folder.id}'">Study</button>`
+              : `<button class="btn btn-secondary" onclick="window.location.href='vocabulary-input.html?id=${folder.id}'">Add Words</button>`;
+
             return `
-        <div class="folder-card">
-          <div class="folder-header">
-            <h3 class="folder-title">${folder.name}</h3>
-            <span class="folder-day">Day ${folder.currentDay}</span>
-          </div>
-          <p class="folder-description">${folder.description}</p>
-          <div class="folder-stats">
-            <div class="stats-item">
-              <span>📚 Words:</span>
-              <span>${folder.wordCount || 0}</span>
-            </div>
-            <div class="stats-item">
-              <span>⏱️ Next Move:</span>
-              <span>${
-                folder.currentDay < 7
-                  ? nextMoveTime.toLocaleString()
-                  : "Completed"
-              }</span>
-            </div>
-          </div>
-          <div class="folder-actions">
-            <button class="btn btn-secondary" onclick="window.showWordModal(${
-              folder.id
-            }, '${folder.name}')">View & Add Words</button>
-            <button class="btn btn-secondary" onclick="window.location.href='study-options.html?id=${
-              folder.id
-            }'">Study</button>
-          </div>
-          <div class="folder-meta">
-            <span>Created: ${new Date(folder.createdAt).toLocaleString()}</span>
-            <span>By: ${folder.creator}</span>
-          </div>
-          <div class="progress-container">
-            <div class="progress-bar" style="width: ${
-              (folder.currentDay / 7) * 100
-            }%"></div>
-          </div>
-          <div class="folder-actions">
-            ${
-              folder.currentDay < 7
-                ? `<button class="btn btn-secondary" onclick="window.moveToNextDay(${folder.id})">Move Day</button>`
-                : `<span style="color: var(--success)">✓ Completed</span>`
-            }
-            <button class="btn btn-secondary" style="color: #e11d48;" onclick="window.deleteFolder(${
-              folder.id
-            })">Delete</button>
-          </div>
-        </div>
-      `;
+              <div class="folder-card">
+                  <div class="folder-header">
+                      <h3 class="folder-title">${folder.name}</h3>
+                      <span class="folder-day">Day ${folder.currentDay}</span>
+                  </div>
+                  <p class="folder-description">${folder.description}</p>
+                  <div class="folder-stats">
+                      <div class="stats-item">
+                          <span>📚 Words:</span>
+                          <span>${folder.wordCount || 0}</span>
+                      </div>
+                      <div class="stats-item">
+                          <span>⏱️ Next Move:</span>
+                          <span>${
+                            folder.currentDay < 7
+                              ? nextMoveTime.toLocaleString()
+                              : "Completed"
+                          }</span>
+                      </div>
+                  </div>
+                  <div class="folder-actions">
+                      <button class="btn btn-secondary" onclick="window.showWordModal(${
+                        folder.id
+                      }, '${folder.name}')">View & Add Words</button>
+                      ${studyButton}
+                  </div>
+                  <div class="folder-meta">
+                      <span>Created: ${new Date(
+                        folder.createdAt
+                      ).toLocaleString()}</span>
+                      <span>By: ${folder.creator}</span>
+                  </div>
+                  <div class="progress-container">
+                      <div class="progress-bar" style="width: ${
+                        (folder.currentDay / 7) * 100
+                      }%"></div>
+                  </div>
+                  <div class="folder-actions">
+                      ${
+                        folder.currentDay < 7
+                          ? `<button class="btn btn-secondary" onclick="window.moveToNextDay(${folder.id})">Move Day</button>`
+                          : `<span style="color: var(--success)">✓ Completed</span>`
+                      }
+                      <button class="btn btn-secondary" style="color: #e11d48;" onclick="window.deleteFolder(${
+                        folder.id
+                      })">Delete</button>
+                  </div>
+              </div>`;
           })
           .join("");
 
@@ -965,7 +974,7 @@
       }
 
       // Word management functions
-      window.showWordModal = function (folderId, folderName) {
+      window.showWordModal = async function (folderId, folderName) {
         currentFolderId = folderId;
         const modal = document.getElementById("wordModal");
         const wordList = document.getElementById("wordList");
@@ -980,11 +989,11 @@
           ? words
               .map(
                 (word) => `
-          <div class="word-item">
-            <span class="word-term">${word.word}</span>
-            <span class="word-definition">${word.meaning}</span>
-          </div>
-        `
+                      <div class="word-item">
+                          <span class="word-term">${word.word}</span>
+                          <span class="word-definition">${word.meaning}</span>
+                      </div>
+                  `
               )
               .join("")
           : "<p>No words yet.</p>";
@@ -999,7 +1008,7 @@
         currentFolderId = null;
       };
 
-      window.addWord = function () {
+      window.addWord = async function () {
         const word = document.getElementById("newWord").value.trim();
         const meaning = document.getElementById("newDefinition").value.trim();
 
@@ -1011,6 +1020,9 @@
         const folder = Object.values(folders)
           .flat()
           .find((f) => f.id === currentFolderId);
+
+        if (!folder) return;
+
         if (!folder.words) folder.words = [];
         if (
           folder.words.some((w) => w.word.toLowerCase() === word.toLowerCase())
@@ -1021,18 +1033,19 @@
 
         folder.words.push({ word, meaning });
         folder.wordCount = folder.words.length;
-        saveData();
+        folder.hasInitialWords = true;
+        await saveData();
         updateFolderDisplay();
 
         const wordList = document.getElementById("wordList");
         wordList.innerHTML = folder.words
           .map(
             (w) => `
-        <div class="word-item">
-          <span class="word-term">${w.word}</span>
-          <span class="word-definition">${w.meaning}</span>
-        </div>
-      `
+                  <div class="word-item">
+                      <span class="word-term">${w.word}</span>
+                      <span class="word-definition">${w.meaning}</span>
+                  </div>
+              `
           )
           .join("");
 
@@ -1084,10 +1097,10 @@
       }
 
       // Event listeners and initialization
-      onAuthStateChanged(auth, (user) => {
+      onAuthStateChanged(auth, async (user) => {
         currentUser = user;
         if (user) {
-          loadData();
+          await loadData();
           showNotification(
             `Welcome, ${user.displayName || "User"}!`,
             "success"
@@ -1095,9 +1108,9 @@
           const userRef = doc(db, "users", user.uid);
           onSnapshot(
             userRef,
-            (doc) => {
-              if (doc.exists()) {
-                folders = doc.data().folders || {
+            (docSnapshot) => {
+              if (docSnapshot.exists()) {
+                folders = docSnapshot.data().folders || {
                   day1: [],
                   day2: [],
                   day3: [],
